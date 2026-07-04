@@ -11,6 +11,7 @@ add_compile_options(-Wall -Wextra -O2)
 add_executable(smallm
         src/main.cpp
         src/gguf.cpp
+        src/tensor.cpp
 )
 
 # public headers will live under include/

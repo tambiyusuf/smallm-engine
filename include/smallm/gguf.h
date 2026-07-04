@@ -62,6 +62,20 @@ namespace smallm {
 
         // start of the raw tensor data, past all the headers
         uint64_t tensor_data_offset = 0;
+
+        //the live mmap backing the tensor data; kept alive for zero-copy access
+        const uint8_t* mapping = nullptr;
+        size_t mapping_size = 0;
+
+        GGUFModel() =default;
+
+        //release the mapping when modeel goes away
+        ~GGUFModel();
+        // this type owns an OS mapping when model goes away
+        GGUFModel(const GGUFModel&) = delete;
+        GGUFModel& operator=(const GGUFModel&) = delete;
+        GGUFModel(GGUFModel&&)  noexcept;
+        GGUFModel& operator=(GGUFModel&&)  noexcept;
     };
 
     // opens a GGUF file via mmap and fills a GGUFModel; throws on malformed input

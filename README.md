@@ -26,3 +26,4 @@ cmake --build build
 
 - Project skeleton
 - GGUF Loader (header, metadata, tensor table)
+- Tensor access and dequantization (F32, Q8_0, Q4_0)

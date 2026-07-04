@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <cstring>
+#include <filesystem>
 #include <stdexcept>
 
 namespace smallm {
@@ -175,8 +176,46 @@ GGUFModel load_gguf(const std::string& path) {
     uint64_t unaligned = r.pos;
     model.tensor_data_offset = (unaligned + alignment - 1) & ~(uint64_t(alignment) - 1);
 
-    // note: we deliberately leak the mapping for now; tensor access will need it later
+    //hand the live mapping to the model so tensor data stays accessible
+    model.mapping = static_cast<const uint8_t*>(mapping);
+    model.mapping_size = file_size;
     return model;
 }
+    //releases the mapping if this model still owns one
+GGUFModel::~GGUFModel() {
+    if (mapping != nullptr) munmap(const_cast<uint8_t*>(mapping), mapping_size);
+    }
 
+    //steals the mapping from 'other' and leaves it empty so it won't unmap twice
+GGUFModel::GGUFModel(GGUFModel && other) noexcept :
+    version(other.version),
+    tensor_count(other.tensor_count),
+    metadata_count(other.metadata_count),
+    metadata(std::move(other.metadata)),
+    tensors(std::move(other.tensors)),
+    tensor_data_offset(other.tensor_data_offset),
+    mapping(other.mapping),
+    mapping_size(other.mapping_size) {
+    other.mapping = nullptr;
+    other.mapping_size = 0;
+}
+
+GGUFModel& GGUFModel::operator=(GGUFModel&& other) noexcept {
+    if (this != &other) {
+        if (mapping != nullptr) {
+            munmap(const_cast<uint8_t*>(mapping), mapping_size);
+        }
+        version             = other.version;
+        tensor_count        = other.tensor_count;
+        metadata_count      = other.metadata_count;
+        metadata            = std::move(other.metadata);
+        tensors             = std::move(other.tensors);
+        tensor_data_offset  = other.tensor_data_offset;
+        mapping             = other.mapping;
+        mapping_size        = other.mapping_size;
+        other.mapping       = nullptr;
+        other.mapping_size  = 0;
+    }
+    return *this;
+}
 } // namespace smallm
