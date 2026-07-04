@@ -12,6 +12,7 @@ add_executable(smallm
         src/main.cpp
         src/gguf.cpp
         src/tensor.cpp
+        src/ops.cpp
 )
 
 # public headers will live under include/
