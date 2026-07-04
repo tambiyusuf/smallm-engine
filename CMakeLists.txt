@@ -7,11 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # keep the build clean and strict while the codebase is small
 add_compile_options(-Wall -Wextra -O2)
 
-# main executable; more sources get added here as the engine grows
+# single source for now; more get added as the engine grows
 add_executable(smallm
         src/main.cpp
-        src/gguf.cpp
 )
 
-# public headers live under include/
+# public headers will live under include/
 target_include_directories(smallm PRIVATE include)
