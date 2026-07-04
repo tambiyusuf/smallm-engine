@@ -1,3 +1,10 @@
+
+
+<img width="976" height="549" alt="jbgfngj5d4117fwj93z8tz93z8tz93z8" src="https://github.com/user-attachments/assets/15ab3621-2058-4251-a0b7-287417e44642" />
+
+
+
+
 # smallm-engine
 
 A from-scratch inference engine for GGUF language models, written in modern C++.
