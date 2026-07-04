@@ -1,0 +1,15 @@
+# build output
+build/
+cmake-build-*/
+
+# model files (too large for git)
+models/*.gguf
+models/*.bin
+
+# editor / IDE
+.idea/
+.vscode/
+*.user
+
+# os
+.DS_Store
