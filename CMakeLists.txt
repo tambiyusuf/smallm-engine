@@ -10,6 +10,7 @@ add_compile_options(-Wall -Wextra -O2)
 # single source for now; more get added as the engine grows
 add_executable(smallm
         src/main.cpp
+        src/gguf.cpp
 )
 
 # public headers will live under include/

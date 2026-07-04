@@ -25,3 +25,4 @@ cmake --build build
 ## Progress
 
 - Project skeleton
+- GGUF Loader (header, metadata, tensor table)
