@@ -10,9 +10,16 @@ add_compile_options(-Wall -Wextra -O2)
 # single source for now; more get added as the engine grows
 add_executable(smallm
         src/main.cpp
-        src/gguf.cpp
-        src/tensor.cpp
-        src/ops.cpp
+        src/core/gguf.cpp
+        src/core/tensor.cpp
+        src/core/ops.cpp
+        src/config/common/config.cpp
+        src/config/qwen2_config.cpp
+
+        src/model/qwen2_model.cpp
+
+
+        src/backend/cpu_backend.cpp
 )
 
 # public headers will live under include/
