@@ -34,4 +34,15 @@ cmake --build build
 - Project skeleton
 - GGUF Loader (header, metadata, tensor table)
 - Tensor access and dequantization (F32, Q8_0, Q4_0)
-- - Core operators complete: matmul, rmsnorm, softmax, silu, rope
+- Core operators complete: matmul, rmsnorm, softmax, silu, rope
+- Backend abstraction: Backend interface + CPUBackend (GPU-ready)
+- Qwen2 forward pass: end-to-end logits on CPU
+- BPE tokenizer: byte-level encode + decode
+- Sampler abstraction: Sampler interface + greedy
+- Text generation: end-to-end coherent output (Qwen2 complete)
+
+
+## Documentation
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities,
+the layered design, and how to extend the engine.

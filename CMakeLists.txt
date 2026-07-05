@@ -10,15 +10,27 @@ add_compile_options(-Wall -Wextra -O2)
 # single source for now; more get added as the engine grows
 add_executable(smallm
         src/main.cpp
+
+        # core
         src/core/gguf.cpp
         src/core/tensor.cpp
         src/core/ops.cpp
+
+        # config
         src/config/common/config.cpp
         src/config/qwen2_config.cpp
 
+        # model
         src/model/qwen2_model.cpp
 
+        # tokenizer
+        src/tokenizer/bpe_tokenizer.cpp
 
+        # runtime
+        src/runtime/sampler/greedy_sampler.cpp
+        src/runtime/generator.cpp
+
+        # backend
         src/backend/cpu_backend.cpp
 )
 
