@@ -28,6 +28,9 @@ add_executable(smallm
 
         # runtime
         src/runtime/sampler/greedy_sampler.cpp
+        src/runtime/sampler/temperature_sampler.cpp
+        src/runtime/sampler/top_k_sampler.cpp
+        src/runtime/sampler/top_p_sampler.cpp
         src/runtime/generator.cpp
 
         # backend
