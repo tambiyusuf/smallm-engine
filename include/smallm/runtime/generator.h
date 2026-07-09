@@ -24,6 +24,7 @@ namespace smallm {
         Model& model_;
         const BPETokenizer& tokenizer_;
         Sampler& sampler_;
+        std::vector<uint32_t> cached_tokens_;   // tokens currently reflected in the model's cache
     };
 
 } // namespace smallm

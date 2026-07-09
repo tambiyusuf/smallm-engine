@@ -41,6 +41,7 @@ cmake --build build
 - Sampler abstraction: Sampler interface + greedy
 - Text generation: end-to-end coherent output (Qwen2 complete)
 - Sampling strategies: temperature, top-k, top-p (+ greedy)
+- Prefix caching: architecture-agnostic KV reuse across shared prefixes
 
 ## Documentation
 

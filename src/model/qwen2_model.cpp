@@ -198,7 +198,20 @@ std::vector<float> Qwen2Model::forward(uint32_t token_id, uint32_t pos) {
                        : output_w_.data.data();
     std::vector<float> logits(config_->vocab_size);
     backend_->matmul(out_w, normed.data(), config_->vocab_size, embd, logits.data());
+    cached_length_ = pos + 1;
     return logits;
 }
 
+    // clear all cached positions
+    void Qwen2Model::reset_cache() {
+    cached_length_ = 0;
+    // the KV buffers keep their allocation; we just mark nothing as valid
+}
+
+    // keep the first n positions, discard the rest
+    void Qwen2Model::truncate_cache(uint32_t n) {
+    if (n < cached_length_) cached_length_ = n;
+    // no need to erase data: positions >= n are simply treated as invalid
+    // and will be overwritten when new tokens are processed
+}
 } // namespace smallm} // namespace smallm

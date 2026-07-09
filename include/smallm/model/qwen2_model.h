@@ -45,6 +45,8 @@ namespace smallm {
         explicit Qwen2Model(GGUFModel gguf);
 
         std::vector<float> forward(uint32_t token_id, uint32_t pos) override;
+        void reset_cache() override;
+        void truncate_cache(uint32_t) override;
 
     private:
         GGUFModel gguf_;
