@@ -14,6 +14,12 @@ namespace smallm {
         ops::matmul(W, x, rows, cols, y);
     }
 
+    void CPUBackend::matmul_quantized(const uint8_t* W, uint32_t type,
+                                  const float* x, uint32_t rows, uint32_t cols,
+                                  float* y) {
+        ops::matmul_quantized(W, type, x, rows, cols, y);
+    }
+
     void CPUBackend::rmsnorm(const float* x, const float* weight,
                              uint32_t size, float eps, float* y) {
         ops::rmsnorm(x, weight, size, eps, y);

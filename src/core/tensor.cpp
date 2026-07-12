@@ -123,4 +123,18 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
     return out;
 }
 
+    QuantizedTensor get_quantized_tensor(const GGUFModel& model, const std::string& name) {
+    const GGUFTensorInfo* info = nullptr;
+    for (const auto& t : model.tensors) {
+        if (t.name == name) { info = &t; break; }
+    }
+    if (!info) throw std::runtime_error("tensor not found: " + name);
+
+    QuantizedTensor qt;
+    qt.data = model.mapping + model.tensor_data_offset + info->offset;
+    qt.type = info->type;
+    qt.dims = info->dims;
+    return qt;
+}
+
 } // namespace smallm

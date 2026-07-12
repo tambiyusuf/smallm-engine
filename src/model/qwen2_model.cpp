@@ -6,8 +6,10 @@
 #include "smallm/backend/cpu_backend.h"
 
 #include <cmath>
-#include <stdexcept>
+#include <algorithm>
 #include <string>
+
+#include "smallm/core/ops.h"
 
 namespace smallm {
 
@@ -35,30 +37,33 @@ static std::string layer_name(uint32_t i, const std::string& suffix) {
 }
 
 void Qwen2Model::load_weights() {
+    // small f32 weights stay dequantized
     token_embd_  = dequantize_tensor(gguf_, "token_embd.weight");
     output_norm_ = dequantize_tensor(gguf_, "output_norm.weight");
-    try {
-        output_w_ = dequantize_tensor(gguf_, "output.weight");
-    } catch (const std::exception&) {
-        output_w_ = Tensor{};  // tied to token_embd_
-    }
+
+    // large output projection kept quantized
+    output_w_ = get_quantized_tensor(gguf_, "output.weight");
 
     uint32_t n = config_->n_layers;
     layers_.resize(n);
     for (uint32_t i = 0; i < n; ++i) {
         LayerWeights& L = layers_[i];
-        L.attn_norm  = dequantize_tensor(gguf_, layer_name(i, "attn_norm.weight"));
-        L.attn_q_w   = dequantize_tensor(gguf_, layer_name(i, "attn_q.weight"));
-        L.attn_q_b   = dequantize_tensor(gguf_, layer_name(i, "attn_q.bias"));
-        L.attn_k_w   = dequantize_tensor(gguf_, layer_name(i, "attn_k.weight"));
-        L.attn_k_b   = dequantize_tensor(gguf_, layer_name(i, "attn_k.bias"));
-        L.attn_v_w   = dequantize_tensor(gguf_, layer_name(i, "attn_v.weight"));
-        L.attn_v_b   = dequantize_tensor(gguf_, layer_name(i, "attn_v.bias"));
-        L.attn_out_w = dequantize_tensor(gguf_, layer_name(i, "attn_output.weight"));
-        L.ffn_norm   = dequantize_tensor(gguf_, layer_name(i, "ffn_norm.weight"));
-        L.ffn_gate   = dequantize_tensor(gguf_, layer_name(i, "ffn_gate.weight"));
-        L.ffn_up     = dequantize_tensor(gguf_, layer_name(i, "ffn_up.weight"));
-        L.ffn_down   = dequantize_tensor(gguf_, layer_name(i, "ffn_down.weight"));
+
+        // small: norms and biases dequantized
+        L.attn_norm = dequantize_tensor(gguf_, layer_name(i, "attn_norm.weight"));
+        L.attn_q_b  = dequantize_tensor(gguf_, layer_name(i, "attn_q.bias"));
+        L.attn_k_b  = dequantize_tensor(gguf_, layer_name(i, "attn_k.bias"));
+        L.attn_v_b  = dequantize_tensor(gguf_, layer_name(i, "attn_v.bias"));
+        L.ffn_norm  = dequantize_tensor(gguf_, layer_name(i, "ffn_norm.weight"));
+
+        // large: kept quantized, dequantized on the fly during matmul
+        L.attn_q_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_q.weight"));
+        L.attn_k_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_k.weight"));
+        L.attn_v_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_v.weight"));
+        L.attn_out_w = get_quantized_tensor(gguf_, layer_name(i, "attn_output.weight"));
+        L.ffn_gate   = get_quantized_tensor(gguf_, layer_name(i, "ffn_gate.weight"));
+        L.ffn_up     = get_quantized_tensor(gguf_, layer_name(i, "ffn_up.weight"));
+        L.ffn_down   = get_quantized_tensor(gguf_, layer_name(i, "ffn_down.weight"));
     }
 }
 
@@ -70,8 +75,17 @@ void Qwen2Model::allocate_kv() {
     }
 }
 
-// ---- attention ----
+// ---- cache management ----
 
+void Qwen2Model::reset_cache() {
+    cached_length_ = 0;
+}
+
+void Qwen2Model::truncate_cache(uint32_t n) {
+    if (n < cached_length_) cached_length_ = n;
+}
+
+// ---- attention ----
 std::vector<float> Qwen2Model::attention(uint32_t layer,
                                          const std::vector<float>& x,
                                          uint32_t pos) {
@@ -80,22 +94,23 @@ std::vector<float> Qwen2Model::attention(uint32_t layer,
     const uint32_t n_head  = config_->n_heads;
     const uint32_t n_kv    = config_->n_kv_heads;
     const uint32_t hd      = config_->head_dim();
-    const uint32_t q_dim   = n_head * hd;   // full query width
-    const uint32_t kv_dim  = n_kv * hd;     // key/value width (smaller, GQA)
-    const uint32_t group   = n_head / n_kv; // query heads per kv head
+    const uint32_t q_dim   = n_head * hd;
+    const uint32_t kv_dim  = n_kv * hd;
+    const uint32_t group   = n_head / n_kv;
 
-    // project x into Q, K, V. weights are [out, in] row-major, so matmul fits directly.
+    // project x into Q, K, V via on-the-fly dequantized matmul.
+    // weights are [out, in] as consumed here (rows=out_dim, cols=embd).
     std::vector<float> q(q_dim), k(kv_dim), v(kv_dim);
-    backend_->matmul(L.attn_q_w.data.data(), x.data(), q_dim, embd, q.data());
-    backend_->matmul(L.attn_k_w.data.data(), x.data(), kv_dim, embd, k.data());
-    backend_->matmul(L.attn_v_w.data.data(), x.data(), kv_dim, embd, v.data());
+    backend_->matmul_quantized(L.attn_q_w.data, L.attn_q_w.type, x.data(), q_dim, embd, q.data());
+    backend_->matmul_quantized(L.attn_k_w.data, L.attn_k_w.type, x.data(), kv_dim, embd, k.data());
+    backend_->matmul_quantized(L.attn_v_w.data, L.attn_v_w.type, x.data(), kv_dim, embd, v.data());
 
-    // Qwen2 adds biases to Q, K, V
-    for (uint32_t i = 0; i < q_dim; ++i)  q[i] += L.attn_q_b.data[i];
-    for (uint32_t i = 0; i < kv_dim; ++i) k[i] += L.attn_k_b.data[i];
-    for (uint32_t i = 0; i < kv_dim; ++i) v[i] += L.attn_v_b.data[i];
+    // Qwen2 adds biases to Q, K, V (vectorized add)
+    ops::axpy(q.data(), L.attn_q_b.data.data(), 1.0f, q_dim);
+    ops::axpy(k.data(), L.attn_k_b.data.data(), 1.0f, kv_dim);
+    ops::axpy(v.data(), L.attn_v_b.data.data(), 1.0f, kv_dim);
 
-    // rotary embedding on Q and K, per head
+    // rotary embedding on Q and K
     backend_->rope(q.data(), n_head, hd, pos, config_->rope_freq_base);
     backend_->rope(k.data(), n_kv,   hd, pos, config_->rope_freq_base);
 
@@ -104,67 +119,59 @@ std::vector<float> Qwen2Model::attention(uint32_t layer,
     std::copy(k.begin(), k.end(), cache.k.begin() + static_cast<size_t>(pos) * kv_dim);
     std::copy(v.begin(), v.end(), cache.v.begin() + static_cast<size_t>(pos) * kv_dim);
 
-    // attention output accumulates here, per query head
     std::vector<float> out(q_dim, 0.0f);
     float scale = 1.0f / std::sqrt(static_cast<float>(hd));
 
-    // for each query head, attend over all cached positions up to pos
     for (uint32_t h = 0; h < n_head; ++h) {
         const float* qh = q.data() + h * hd;
-        uint32_t kvh = h / group;   // which kv head this query head uses
+        uint32_t kvh = h / group;   // which kv head this query head shares (GQA)
 
-        // scores over positions 0..pos
+        // scores over cached positions 0..pos (vectorized dot product)
         std::vector<float> scores(pos + 1);
         for (uint32_t t = 0; t <= pos; ++t) {
             const float* kt = cache.k.data() + static_cast<size_t>(t) * kv_dim + kvh * hd;
-            float dot = 0.0f;
-            for (uint32_t d = 0; d < hd; ++d) dot += qh[d] * kt[d];
-            scores[t] = dot * scale;
+            scores[t] = ops::dot(qh, kt, hd) * scale;
         }
 
-        // softmax over the scores
         backend_->softmax(scores.data(), pos + 1);
 
-        // weighted sum of V
+        // weighted sum of V (vectorized accumulate)
         float* oh = out.data() + h * hd;
         for (uint32_t t = 0; t <= pos; ++t) {
             const float* vt = cache.v.data() + static_cast<size_t>(t) * kv_dim + kvh * hd;
-            float w = scores[t];
-            for (uint32_t d = 0; d < hd; ++d) oh[d] += w * vt[d];
+            ops::axpy(oh, vt, scores[t], hd);
         }
     }
 
-    // output projection back to embd width
+    // output projection back to embd width (on-the-fly dequantized)
     std::vector<float> proj(embd);
-    backend_->matmul(L.attn_out_w.data.data(), out.data(), embd, q_dim, proj.data());
+    backend_->matmul_quantized(L.attn_out_w.data, L.attn_out_w.type,
+                               out.data(), embd, q_dim, proj.data());
     return proj;
 }
 
-// ---- feed-forward (SwiGLU) ----
-
-std::vector<float> Qwen2Model::feed_forward(uint32_t layer,
-                                            const std::vector<float>& x) {
+    // ---- feed-forward (SwiGLU) ----
+    std::vector<float> Qwen2Model::feed_forward(uint32_t layer,
+                                                const std::vector<float>& x) {
     const auto& L = layers_[layer];
     const uint32_t embd = config_->embd_dim;
     const uint32_t ffn  = config_->ffn_dim;
 
     std::vector<float> gate(ffn), up(ffn);
-    backend_->matmul(L.ffn_gate.data.data(), x.data(), ffn, embd, gate.data());
-    backend_->matmul(L.ffn_up.data.data(),   x.data(), ffn, embd, up.data());
+    backend_->matmul_quantized(L.ffn_gate.data, L.ffn_gate.type, x.data(), ffn, embd, gate.data());
+    backend_->matmul_quantized(L.ffn_up.data,   L.ffn_up.type,   x.data(), ffn, embd, up.data());
 
-    // silu on gate, then elementwise multiply with up
+    // silu on gate, then elementwise multiply with up (vectorized)
     backend_->silu(gate.data(), ffn);
-    for (uint32_t i = 0; i < ffn; ++i) gate[i] *= up[i];
+    ops::mul(gate.data(), up.data(), ffn);   // was: scalar loop
 
     // down projection back to embd width
     std::vector<float> down(embd);
-    backend_->matmul(L.ffn_down.data.data(), gate.data(), embd, ffn, down.data());
+    backend_->matmul_quantized(L.ffn_down.data, L.ffn_down.type, gate.data(), embd, ffn, down.data());
     return down;
 }
-
-// ---- full forward ----
-
-std::vector<float> Qwen2Model::forward(uint32_t token_id, uint32_t pos) {
+    // ---- full forward ----
+    std::vector<float> Qwen2Model::forward(uint32_t token_id, uint32_t pos) {
     const uint32_t embd = config_->embd_dim;
 
     // embedding lookup: copy the token's row from the embedding table
@@ -179,39 +186,26 @@ std::vector<float> Qwen2Model::forward(uint32_t token_id, uint32_t pos) {
         backend_->rmsnorm(x.data(), layers_[layer].attn_norm.data.data(),
                           embd, config_->rms_eps, normed.data());
         std::vector<float> attn = attention(layer, normed, pos);
-        for (uint32_t i = 0; i < embd; ++i) x[i] += attn[i];
+        ops::axpy(x.data(), attn.data(), 1.0f, embd);   // residual: x += attn
 
         // feed-forward block with pre-norm and residual
         backend_->rmsnorm(x.data(), layers_[layer].ffn_norm.data.data(),
                           embd, config_->rms_eps, normed.data());
         std::vector<float> ff = feed_forward(layer, normed);
-        for (uint32_t i = 0; i < embd; ++i) x[i] += ff[i];
+        ops::axpy(x.data(), ff.data(), 1.0f, embd);     // residual: x += ff
     }
 
     // final norm
     backend_->rmsnorm(x.data(), output_norm_.data.data(),
                       embd, config_->rms_eps, normed.data());
 
-    // output projection to logits; fall back to tied embedding if no output.weight
-    const float* out_w = output_w_.data.empty()
-                       ? token_embd_.data.data()
-                       : output_w_.data.data();
+    // output projection to logits (on-the-fly dequantized)
     std::vector<float> logits(config_->vocab_size);
-    backend_->matmul(out_w, normed.data(), config_->vocab_size, embd, logits.data());
+    backend_->matmul_quantized(output_w_.data, output_w_.type,
+                               normed.data(), config_->vocab_size, embd, logits.data());
+
     cached_length_ = pos + 1;
     return logits;
 }
 
-    // clear all cached positions
-    void Qwen2Model::reset_cache() {
-    cached_length_ = 0;
-    // the KV buffers keep their allocation; we just mark nothing as valid
-}
-
-    // keep the first n positions, discard the rest
-    void Qwen2Model::truncate_cache(uint32_t n) {
-    if (n < cached_length_) cached_length_ = n;
-    // no need to erase data: positions >= n are simply treated as invalid
-    // and will be overwritten when new tokens are processed
-}
-} // namespace smallm} // namespace smallm
+} // namespace smallm

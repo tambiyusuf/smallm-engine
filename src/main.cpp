@@ -14,24 +14,24 @@ int main(int argc, char** argv) {
     try {
         smallm::GGUFModel model = smallm::load_gguf(argv[1]);
 
-        // build tokenizer BEFORE moving model into the engine
         smallm::BPETokenizer tokenizer(model);
         smallm::Qwen2Model qwen(std::move(model));
 
         smallm::GreedySampler sampler;
         smallm::Generator gen(qwen, tokenizer, sampler);
 
-        // same system prefix, two different questions:
-        // the second request should reuse the shared prefix from the first
-        std::string sys = "You are a helpful assistant. ";
+        std::string prompt = "The capital of France is";
+        std::string out = gen.generate(prompt, 50);
+        std::cout << prompt << out << "\n\n";
 
-        std::cout << "--- first request ---\n";
-        std::string p1 = sys + "What is the capital of France?";
-        std::cout << p1 << gen.generate(p1, 15) << "\n";
-
-        std::cout << "\n--- second request (same prefix) ---\n";
-        std::string p2 = sys + "What is the capital of Japan?";
-        std::cout << p2 << gen.generate(p2, 15) << "\n";
+        const auto& s = gen.last_stats();
+        std::cout << "--- stats ---\n";
+        std::cout << "prefill: " << s.prefill_tokens << " tok, "
+                  << s.prefill_ms << " ms ("
+                  << s.prefill_tokens_per_sec() << " tok/s)\n";
+        std::cout << "decode:  " << s.generated_tokens << " tok, "
+                  << s.decode_ms << " ms ("
+                  << s.decode_tokens_per_sec() << " tok/s)\n";
 
     } catch (const std::exception& e) {
         std::cerr << "error: " << e.what() << "\n";

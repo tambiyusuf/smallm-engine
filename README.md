@@ -42,6 +42,7 @@ cmake --build build
 - Text generation: end-to-end coherent output (Qwen2 complete)
 - Sampling strategies: temperature, top-k, top-p (+ greedy)
 - Prefix caching: architecture-agnostic KV reuse across shared prefixes
+- Performance: quantized matmul (AVX2 + OpenMP), ~9x faster decode
 
 ## Documentation
 

@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # keep the build clean and strict while the codebase is small
 add_compile_options(-Wall -Wextra -O2)
+add_compile_options(-Wall -Wextra -mavx2 -mfma)
+find_package(OpenMP REQUIRED)
 
 # single source for now; more get added as the engine grows
 add_executable(smallm
@@ -38,4 +40,5 @@ add_executable(smallm
 )
 
 # public headers will live under include/
+target_link_libraries(smallm PRIVATE OpenMP::OpenMP_CXX)
 target_include_directories(smallm PRIVATE include)

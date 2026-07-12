@@ -13,7 +13,10 @@ namespace smallm {
     public:
         void matmul(const float* W, const float* x,
                     uint32_t rows, uint32_t cols, float* y) override;
-
+        
+        void matmul_quantized(const uint8_t* W, uint32_t type,
+                          const float* x, uint32_t rows, uint32_t cols,
+                          float* y) override;
         void rmsnorm(const float* x, const float* weight,
                      uint32_t size, float eps, float* y) override;
 

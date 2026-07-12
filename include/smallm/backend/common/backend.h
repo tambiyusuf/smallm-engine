@@ -17,6 +17,11 @@ namespace smallm {
         virtual void matmul(const float* W, const float* x,
                             uint32_t rows, uint32_t cols, float* y) = 0;
 
+        // y = W * x, where W is a quantized weight matrix dequantized on the fly
+        virtual void matmul_quantized(const uint8_t* W, uint32_t type,
+                                      const float* x, uint32_t rows, uint32_t cols,
+                                      float* y) = 0;
+
         // y = rmsnorm(x) * weight, over `size` elements
         virtual void rmsnorm(const float* x, const float* weight,
                             uint32_t size, float eps, float* y) = 0;
