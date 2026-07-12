@@ -3,7 +3,7 @@
 //
 
 #include "../../include/smallm/core/ops.h"
-
+#include "smallm/core/common/quant_common.h"
 #include <cmath>
 #include <algorithm>
 #include <cstring>
@@ -94,30 +94,6 @@ namespace smallm::ops {
     // dequantizes and multiplies one row of a Q4_0/Q8_0 weight with x, returning the dot.
 // blocks of 32 values: Q4_0 = 2-byte scale + 16 packed bytes, Q8_0 = 2-byte scale + 32 int8.
 
-// (f16_to_f32 helper needed here too; declare it accessible or duplicate a small version)
-static float f16_to_f32_ops(uint16_t h) {
-    uint32_t sign = (h & 0x8000u) << 16;
-    uint32_t exp  = (h >> 10) & 0x1F;
-    uint32_t mant = h & 0x3FF;
-    uint32_t bits;
-    if (exp == 0) {
-        if (mant == 0) bits = sign;
-        else {
-            exp = 127 - 15 + 1;
-            while ((mant & 0x400) == 0) { mant <<= 1; --exp; }
-            mant &= 0x3FF;
-            bits = sign | (exp << 23) | (mant << 13);
-        }
-    } else if (exp == 0x1F) {
-        bits = sign | 0x7F800000u | (mant << 13);
-    } else {
-        bits = sign | ((exp - 15 + 127) << 23) | (mant << 13);
-    }
-    float out;
-    std::memcpy(&out, &bits, sizeof(out));
-    return out;
-}
-
 void matmul_quantized(const uint8_t* W, uint32_t type,
                       const float* x, uint32_t rows, uint32_t cols,
                       float* y) {
@@ -135,7 +111,7 @@ void matmul_quantized(const uint8_t* W, uint32_t type,
             for (uint32_t b = 0; b < nblocks; ++b) {
                 uint16_t sb;
                 std::memcpy(&sb, row, 2);
-                __m256 vscale = _mm256_set1_ps(f16_to_f32_ops(sb));
+                __m256 vscale = _mm256_set1_ps(f16_to_f32(sb));
 
                 const int8_t* q = reinterpret_cast<const int8_t*>(row + 2);
                 const float* xb = x + b * block;
@@ -174,7 +150,7 @@ void matmul_quantized(const uint8_t* W, uint32_t type,
             for (uint32_t b = 0; b < nblocks; ++b) {
                 uint16_t sb;
                 std::memcpy(&sb, row, 2);
-                __m256 vscale = _mm256_set1_ps(f16_to_f32_ops(sb));
+                __m256 vscale = _mm256_set1_ps(f16_to_f32(sb));
 
                 const uint8_t* q = row + 2;
                 const float* xb = x + b * block;
@@ -228,7 +204,7 @@ void matmul_quantized(const uint8_t* W, uint32_t type,
 
                 uint16_t d_bits;
                 std::memcpy(&d_bits, row + 208, 2);
-                __m256 vd = _mm256_set1_ps(f16_to_f32_ops(d_bits));
+                __m256 vd = _mm256_set1_ps(f16_to_f32(d_bits));
 
                 const float* xb = x + sb * QK_K;
 

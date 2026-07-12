@@ -39,4 +39,9 @@ namespace smallm {
     // returns the right derived type as a base pointer
     std::unique_ptr<ModelConfig> read_config(const GGUFModel& model);
 
+    // fills the shared core fields from metadata using the given architecture prefix
+    // (e.g. "qwen2", "llama"). architecture-specific readers call this first, then
+    // add whatever extra fields their architecture needs.
+    void read_core_config(const GGUFModel& model, const std::string& prefix,
+                          ModelConfig& cfg);
 } // namespace smallm

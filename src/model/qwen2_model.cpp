@@ -15,12 +15,13 @@ namespace smallm {
 
 // ---- KVCache ----
 
-void KVCache::allocate(uint32_t /*layers*/, uint32_t kv_dim_, uint32_t max_seq_) {
-    kv_dim = kv_dim_;
-    max_seq = max_seq_;
-    k.assign(static_cast<size_t>(max_seq) * kv_dim, 0.0f);
-    v.assign(static_cast<size_t>(max_seq) * kv_dim, 0.0f);
-}
+    void Qwen2Model::allocate_kv() {
+        uint32_t kv_dim = config_->n_kv_heads * config_->head_dim();
+        kv_.resize(config_->n_layers);
+        for (auto& c : kv_) {
+            c.allocate(kv_dim, config_->context_length);   // was: c.allocate(n_layers, kv_dim, ...)
+        }
+    }
 
 // ---- construction ----
 
@@ -30,10 +31,6 @@ Qwen2Model::Qwen2Model(GGUFModel gguf)
       backend_(std::make_unique<CPUBackend>()) {
     load_weights();
     allocate_kv();
-}
-
-static std::string layer_name(uint32_t i, const std::string& suffix) {
-    return "blk." + std::to_string(i) + "." + suffix;
 }
 
 void Qwen2Model::load_weights() {
@@ -50,28 +47,20 @@ void Qwen2Model::load_weights() {
         LayerWeights& L = layers_[i];
 
         // small: norms and biases dequantized
-        L.attn_norm = dequantize_tensor(gguf_, layer_name(i, "attn_norm.weight"));
-        L.attn_q_b  = dequantize_tensor(gguf_, layer_name(i, "attn_q.bias"));
-        L.attn_k_b  = dequantize_tensor(gguf_, layer_name(i, "attn_k.bias"));
-        L.attn_v_b  = dequantize_tensor(gguf_, layer_name(i, "attn_v.bias"));
-        L.ffn_norm  = dequantize_tensor(gguf_, layer_name(i, "ffn_norm.weight"));
+        L.attn_norm = dequantize_tensor(gguf_, layer_tensor_name(i, "attn_norm.weight"));
+        L.attn_q_b  = dequantize_tensor(gguf_, layer_tensor_name(i, "attn_q.bias"));
+        L.attn_k_b  = dequantize_tensor(gguf_, layer_tensor_name(i, "attn_k.bias"));
+        L.attn_v_b  = dequantize_tensor(gguf_, layer_tensor_name(i, "attn_v.bias"));
+        L.ffn_norm  = dequantize_tensor(gguf_, layer_tensor_name(i, "ffn_norm.weight"));
 
         // large: kept quantized, dequantized on the fly during matmul
-        L.attn_q_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_q.weight"));
-        L.attn_k_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_k.weight"));
-        L.attn_v_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_v.weight"));
-        L.attn_out_w = get_quantized_tensor(gguf_, layer_name(i, "attn_output.weight"));
-        L.ffn_gate   = get_quantized_tensor(gguf_, layer_name(i, "ffn_gate.weight"));
-        L.ffn_up     = get_quantized_tensor(gguf_, layer_name(i, "ffn_up.weight"));
-        L.ffn_down   = get_quantized_tensor(gguf_, layer_name(i, "ffn_down.weight"));
-    }
-}
-
-void Qwen2Model::allocate_kv() {
-    uint32_t kv_dim = config_->n_kv_heads * config_->head_dim();
-    kv_.resize(config_->n_layers);
-    for (auto& c : kv_) {
-        c.allocate(config_->n_layers, kv_dim, config_->context_length);
+        L.attn_q_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_q.weight"));
+        L.attn_k_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_k.weight"));
+        L.attn_v_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_v.weight"));
+        L.attn_out_w = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_output.weight"));
+        L.ffn_gate   = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_gate.weight"));
+        L.ffn_up     = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_up.weight"));
+        L.ffn_down   = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_down.weight"));
     }
 }
 

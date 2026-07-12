@@ -8,6 +8,7 @@
 #include "smallm/core/gguf.h"
 #include "smallm/core/tensor.h"
 #include "smallm/backend/common/backend.h"
+#include "smallm/model/common/kv_cache.h"
 
 #include <cstdint>
 #include <memory>
@@ -24,14 +25,6 @@ namespace smallm {
         QuantizedTensor ffn_gate, ffn_up, ffn_down;
     };
 
-    struct LlamaKVCache {
-        std::vector<float> k;
-        std::vector<float> v;
-        uint32_t kv_dim = 0;
-        uint32_t max_seq = 0;
-
-        void allocate(uint32_t kv_dim_, uint32_t max_seq_);
-    };
 
     class LlamaModel : public Model {
     public:
@@ -50,7 +43,7 @@ namespace smallm {
         QuantizedTensor output_w_;
 
         std::vector<LlamaLayerWeights> layers_;
-        std::vector<LlamaKVCache> kv_;
+        std::vector<KVCache> kv_;
 
         void load_weights();
         void allocate_kv();

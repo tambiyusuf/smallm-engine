@@ -2,44 +2,13 @@
 // Created by tambiyusuf on 4.07.2026.
 //
 #include "../../include/smallm/core/tensor.h"
-
+#include "smallm/core/common/quant_common.h"
 #include <cstring>
 #include <stdexcept>
 
 namespace smallm {
 
 namespace {
-
-// converts an IEEE half-precision (f16) value to float; scales are stored as f16
-float f16_to_f32(uint16_t h) {
-    uint32_t sign = (h & 0x8000u) << 16;
-    uint32_t exp  = (h >> 10) & 0x1F;
-    uint32_t mant = h & 0x3FF;
-
-    uint32_t bits;
-    if (exp == 0) {
-        // subnormal or zero: no implicit leading bit
-        if (mant == 0) {
-            bits = sign;                 // signed zero
-        } else {
-            // normalize the subnormal into a float
-            exp = 127 - 15 + 1;
-            while ((mant & 0x400) == 0) { mant <<= 1; --exp; }
-            mant &= 0x3FF;
-            bits = sign | (exp << 23) | (mant << 13);
-        }
-    } else if (exp == 0x1F) {
-        // inf or nan
-        bits = sign | 0x7F800000u | (mant << 13);
-    } else {
-        // normal number: rebias exponent from 15 to 127
-        bits = sign | ((exp - 15 + 127) << 23) | (mant << 13);
-    }
-
-    float out;
-    std::memcpy(&out, &bits, sizeof(out));
-    return out;
-}
 
 // locates a tensor's raw bytes inside the live mapping
 const uint8_t* tensor_data_ptr(const GGUFModel& model, const GGUFTensorInfo& info) {

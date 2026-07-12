@@ -117,8 +117,9 @@ std::vector<uint32_t> SPTokenizer::encode(const std::string& text) const {
     return out;
 }
 
-// decode: concatenate token strings, then turn the space marks back into spaces
-std::string SPTokenizer::decode(const std::vector<uint32_t>& ids) const {
+    // decode: concatenate token strings, turning space marks back into spaces and
+    // byte tokens (<0xXX>) back into their raw bytes
+    std::string SPTokenizer::decode(const std::vector<uint32_t>& ids) const {
     std::string out;
     for (uint32_t id : ids) {
         if (id >= id_to_token_.size()) continue;
@@ -131,7 +132,7 @@ std::string SPTokenizer::decode(const std::vector<uint32_t>& ids) const {
             continue;
         }
 
-        // replace every space mark with an actual space
+        // every other token: copy its bytes, replacing each space mark with a space
         size_t i = 0;
         while (i < tok.size()) {
             if (tok.compare(i, kSpaceMark.size(), kSpaceMark) == 0) {
@@ -145,5 +146,4 @@ std::string SPTokenizer::decode(const std::vector<uint32_t>& ids) const {
     }
     return out;
 }
-
 } // namespace smallm

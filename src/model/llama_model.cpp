@@ -13,15 +13,6 @@
 
 namespace smallm {
 
-// ---- KV cache ----
-
-void LlamaKVCache::allocate(uint32_t kv_dim_, uint32_t max_seq_) {
-    kv_dim = kv_dim_;
-    max_seq = max_seq_;
-    k.assign(static_cast<size_t>(max_seq) * kv_dim, 0.0f);
-    v.assign(static_cast<size_t>(max_seq) * kv_dim, 0.0f);
-}
-
 // ---- construction ----
 
 LlamaModel::LlamaModel(GGUFModel gguf)
@@ -30,10 +21,6 @@ LlamaModel::LlamaModel(GGUFModel gguf)
       backend_(std::make_unique<CPUBackend>()) {
     load_weights();
     allocate_kv();
-}
-
-static std::string layer_name(uint32_t i, const std::string& suffix) {
-    return "blk." + std::to_string(i) + "." + suffix;
 }
 
 void LlamaModel::load_weights() {
@@ -47,17 +34,17 @@ void LlamaModel::load_weights() {
         LlamaLayerWeights& L = layers_[i];
 
         // norms stay dequantized (small, f32)
-        L.attn_norm = dequantize_tensor(gguf_, layer_name(i, "attn_norm.weight"));
-        L.ffn_norm  = dequantize_tensor(gguf_, layer_name(i, "ffn_norm.weight"));
+        L.attn_norm = dequantize_tensor(gguf_, layer_tensor_name(i, "attn_norm.weight"));
+        L.ffn_norm  = dequantize_tensor(gguf_, layer_tensor_name(i, "ffn_norm.weight"));
 
         // large weights kept quantized; note: no attention biases in Llama
-        L.attn_q_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_q.weight"));
-        L.attn_k_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_k.weight"));
-        L.attn_v_w   = get_quantized_tensor(gguf_, layer_name(i, "attn_v.weight"));
-        L.attn_out_w = get_quantized_tensor(gguf_, layer_name(i, "attn_output.weight"));
-        L.ffn_gate   = get_quantized_tensor(gguf_, layer_name(i, "ffn_gate.weight"));
-        L.ffn_up     = get_quantized_tensor(gguf_, layer_name(i, "ffn_up.weight"));
-        L.ffn_down   = get_quantized_tensor(gguf_, layer_name(i, "ffn_down.weight"));
+        L.attn_q_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_q.weight"));
+        L.attn_k_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_k.weight"));
+        L.attn_v_w   = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_v.weight"));
+        L.attn_out_w = get_quantized_tensor(gguf_, layer_tensor_name(i, "attn_output.weight"));
+        L.ffn_gate   = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_gate.weight"));
+        L.ffn_up     = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_up.weight"));
+        L.ffn_down   = get_quantized_tensor(gguf_, layer_tensor_name(i, "ffn_down.weight"));
     }
 }
 
@@ -104,7 +91,7 @@ std::vector<float> LlamaModel::attention(uint32_t layer,
     backend_->rope(k.data(), n_kv,   hd, pos, config_->rope_freq_base);
 
     // write this token's K and V into the cache at position `pos`
-    LlamaKVCache& cache = kv_[layer];
+    KVCache& cache = kv_[layer];
     std::copy(k.begin(), k.end(), cache.k.begin() + static_cast<size_t>(pos) * kv_dim);
     std::copy(v.begin(), v.end(), cache.v.begin() + static_cast<size_t>(pos) * kv_dim);
 

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace smallm {
 
@@ -41,4 +42,8 @@ namespace smallm {
         uint32_t cached_length_ = 0;
     };
 
+    // builds the "blk.<i>.<suffix>" tensor name used by every architecture
+    inline std::string layer_tensor_name(uint32_t i, const std::string& suffix) {
+        return "blk." + std::to_string(i) + "." + suffix;
+    }
 } // namespace smallm

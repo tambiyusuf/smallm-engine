@@ -5,7 +5,7 @@
 #include "smallm/core/gguf.h"
 #include "smallm/core/tensor.h"
 #include "smallm/backend/common/backend.h"
-
+#include "smallm/model/common/kv_cache.h"
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -24,16 +24,6 @@ namespace smallm {
         // large quantized weights
         QuantizedTensor attn_q_w, attn_k_w, attn_v_w, attn_out_w;
         QuantizedTensor ffn_gate, ffn_up, ffn_down;
-    };
-
-    // per-layer key/value cache, pre-allocated to context length
-    struct KVCache {
-        std::vector<float> k;
-        std::vector<float> v;
-        uint32_t kv_dim = 0;
-        uint32_t max_seq = 0;
-
-        void allocate(uint32_t layers, uint32_t kv_dim_, uint32_t max_seq_);
     };
 
     class Qwen2Model : public Model {
