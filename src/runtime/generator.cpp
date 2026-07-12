@@ -8,16 +8,16 @@
 
 namespace smallm {
 
-static uint32_t common_prefix_length(const std::vector<uint32_t>& a,
+    static uint32_t common_prefix_length(const std::vector<uint32_t>& a,
                                      const std::vector<uint32_t>& b) {
-    uint32_t n = 0;
-    uint32_t limit = std::min<uint32_t>(a.size(), b.size());
-    while (n < limit && a[n] == b[n]) ++n;
-    return n;
-}
+        uint32_t n = 0;
+        uint32_t limit = std::min<uint32_t>(a.size(), b.size());
+        while (n < limit && a[n] == b[n]) ++n;
+        return n;
+    }
 
-Generator::Generator(Model& model, const BPETokenizer& tokenizer, Sampler& sampler)
-    : model_(model), tokenizer_(tokenizer), sampler_(sampler) {}
+    Generator::Generator(Model& model, const Tokenizer& tokenizer, Sampler& sampler)
+        : model_(model), tokenizer_(tokenizer), sampler_(sampler) {}
 
 std::string Generator::generate(const std::string& prompt, uint32_t max_new_tokens) {
     using clock = std::chrono::steady_clock;

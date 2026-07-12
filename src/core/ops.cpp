@@ -206,8 +206,111 @@ void matmul_quantized(const uint8_t* W, uint32_t type,
             lo128 = _mm_hadd_ps(lo128, lo128);
             y[r] = _mm_cvtss_f32(lo128);
         }
+    } else if (type == 14) {  // Q6_K, AVX2
+        const int QK_K = 256;
+        const int block_bytes = 210;
+        const uint32_t nsb = cols / QK_K;
+        const uint32_t row_bytes = nsb * block_bytes;
 
-    } else {  // F32 fallback: plain float weights
+        const __m256i mask_0f = _mm256_set1_epi32(0x0F);
+        const __m256i mask_03 = _mm256_set1_epi32(0x03);
+        const __m256i c32     = _mm256_set1_epi32(32);
+
+        #pragma omp parallel for
+        for (uint32_t r = 0; r < rows; ++r) {
+            const uint8_t* row = W + static_cast<uint64_t>(r) * row_bytes;
+            __m256 acc = _mm256_setzero_ps();
+
+            for (uint32_t sb = 0; sb < nsb; ++sb) {
+                const uint8_t* ql     = row;
+                const uint8_t* qh     = row + 128;
+                const int8_t*  scales = reinterpret_cast<const int8_t*>(row + 192);
+
+                uint16_t d_bits;
+                std::memcpy(&d_bits, row + 208, 2);
+                __m256 vd = _mm256_set1_ps(f16_to_f32_ops(d_bits));
+
+                const float* xb = x + sb * QK_K;
+
+                for (int half = 0; half < 2; ++half) {
+                    const uint8_t* ql_h = ql + half * 64;
+                    const uint8_t* qh_h = qh + half * 32;
+                    const int8_t*  sc_h = scales + half * 8;
+                    const float*   x_h  = xb + half * 128;
+
+                    // process 8 values of l at a time (l = 0..31)
+                    for (int l = 0; l < 32; l += 8) {
+                        // sub-block scales: all 8 lanes in this chunk share l/16
+                        int si = l / 16;
+                        __m256 s0 = _mm256_set1_ps(static_cast<float>(sc_h[si]));
+                        __m256 s1 = _mm256_set1_ps(static_cast<float>(sc_h[2 + si]));
+                        __m256 s2 = _mm256_set1_ps(static_cast<float>(sc_h[4 + si]));
+                        __m256 s3 = _mm256_set1_ps(static_cast<float>(sc_h[6 + si]));
+
+                        // widen the packed bytes into int32 lanes
+                        __m256i vql_lo = _mm256_cvtepu8_epi32(
+                            _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ql_h + l)));
+                        __m256i vql_hi = _mm256_cvtepu8_epi32(
+                            _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ql_h + l + 32)));
+                        __m256i vqh = _mm256_cvtepu8_epi32(
+                            _mm_loadl_epi64(reinterpret_cast<const __m128i*>(qh_h + l)));
+
+                        // q0 = (ql_lo & 0x0F) | ((qh >> 0 & 3) << 4) - 32
+                        __m256i q0 = _mm256_sub_epi32(
+                            _mm256_or_si256(
+                                _mm256_and_si256(vql_lo, mask_0f),
+                                _mm256_slli_epi32(_mm256_and_si256(vqh, mask_03), 4)),
+                            c32);
+
+                        // q1 = (ql_hi & 0x0F) | ((qh >> 2 & 3) << 4) - 32
+                        __m256i q1 = _mm256_sub_epi32(
+                            _mm256_or_si256(
+                                _mm256_and_si256(vql_hi, mask_0f),
+                                _mm256_slli_epi32(
+                                    _mm256_and_si256(_mm256_srli_epi32(vqh, 2), mask_03), 4)),
+                            c32);
+
+                        // q2 = (ql_lo >> 4) | ((qh >> 4 & 3) << 4) - 32
+                        __m256i q2 = _mm256_sub_epi32(
+                            _mm256_or_si256(
+                                _mm256_srli_epi32(vql_lo, 4),
+                                _mm256_slli_epi32(
+                                    _mm256_and_si256(_mm256_srli_epi32(vqh, 4), mask_03), 4)),
+                            c32);
+
+                        // q3 = (ql_hi >> 4) | ((qh >> 6 & 3) << 4) - 32
+                        __m256i q3 = _mm256_sub_epi32(
+                            _mm256_or_si256(
+                                _mm256_srli_epi32(vql_hi, 4),
+                                _mm256_slli_epi32(
+                                    _mm256_and_si256(_mm256_srli_epi32(vqh, 6), mask_03), 4)),
+                            c32);
+
+                        // convert to float, apply d * sub-scale, multiply with x, accumulate
+                        __m256 f0 = _mm256_mul_ps(_mm256_cvtepi32_ps(q0), _mm256_mul_ps(vd, s0));
+                        __m256 f1 = _mm256_mul_ps(_mm256_cvtepi32_ps(q1), _mm256_mul_ps(vd, s1));
+                        __m256 f2 = _mm256_mul_ps(_mm256_cvtepi32_ps(q2), _mm256_mul_ps(vd, s2));
+                        __m256 f3 = _mm256_mul_ps(_mm256_cvtepi32_ps(q3), _mm256_mul_ps(vd, s3));
+
+                        acc = _mm256_fmadd_ps(f0, _mm256_loadu_ps(x_h + l),      acc);
+                        acc = _mm256_fmadd_ps(f1, _mm256_loadu_ps(x_h + l + 32), acc);
+                        acc = _mm256_fmadd_ps(f2, _mm256_loadu_ps(x_h + l + 64), acc);
+                        acc = _mm256_fmadd_ps(f3, _mm256_loadu_ps(x_h + l + 96), acc);
+                    }
+                }
+                row += block_bytes;
+            }
+
+            // horizontal sum
+            __m128 lo128 = _mm256_castps256_ps128(acc);
+            __m128 hi128 = _mm256_extractf128_ps(acc, 1);
+            lo128 = _mm_add_ps(lo128, hi128);
+            lo128 = _mm_hadd_ps(lo128, lo128);
+            lo128 = _mm_hadd_ps(lo128, lo128);
+            y[r] = _mm_cvtss_f32(lo128);
+        }
+    }
+        else {  // F32 fallback: plain float weights
         const float* Wf = reinterpret_cast<const float*>(W);
 
         #pragma omp parallel for

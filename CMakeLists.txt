@@ -21,12 +21,16 @@ add_executable(smallm
         # config
         src/config/common/config.cpp
         src/config/qwen2_config.cpp
+        src/config/llama_config.cpp
 
         # model
         src/model/qwen2_model.cpp
+        src/model/llama_model.cpp
 
         # tokenizer
         src/tokenizer/bpe_tokenizer.cpp
+        src/tokenizer/tokenizer_factory.cpp
+        src/tokenizer/sp_tokenizer.cpp
 
         # runtime
         src/runtime/sampler/greedy_sampler.cpp

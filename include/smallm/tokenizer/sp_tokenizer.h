@@ -1,5 +1,5 @@
 //
-// Created by tambiyusuf on 6.07.2026.
+// Created by tambiyusuf on 13.07.2026.
 //
 #pragma once
 
@@ -13,10 +13,11 @@
 
 namespace smallm {
 
-    // byte-level BPE (GPT-2 style), as used by Qwen2 and most HuggingFace models
-    class BPETokenizer : public Tokenizer {
+    // SentencePiece-style BPE, as used by Llama. merges are chosen by token score
+    // rather than by an explicit merge-rank list, and spaces are encoded as U+2581.
+    class SPTokenizer : public Tokenizer {
     public:
-        explicit BPETokenizer(const GGUFModel& model);
+        explicit SPTokenizer(const GGUFModel& model);
 
         std::vector<uint32_t> encode(const std::string& text) const override;
         std::string decode(const std::vector<uint32_t>& ids) const override;
@@ -29,16 +30,11 @@ namespace smallm {
 
     private:
         std::vector<std::string> id_to_token_;
+        std::vector<float> scores_;                          // one score per token
         std::unordered_map<std::string, uint32_t> token_to_id_;
-        std::unordered_map<std::string, int32_t> merge_rank_;
 
         int32_t bos_id_ = -1;
         int32_t eos_id_ = -1;
-
-        std::unordered_map<uint8_t, std::string> byte_to_unicode_;
-        std::unordered_map<std::string, uint8_t> unicode_to_byte_;
-
-        void build_byte_maps();
     };
 
 } // namespace smallm

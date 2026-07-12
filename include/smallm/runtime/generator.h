@@ -15,7 +15,7 @@ namespace smallm {
 
     class Generator {
     public:
-        Generator(Model& model, const BPETokenizer& tokenizer, Sampler& sampler);
+        Generator(Model& model, const Tokenizer& tokenizer, Sampler& sampler);
 
         std::string generate(const std::string& prompt, uint32_t max_new_tokens);
 
@@ -24,7 +24,7 @@ namespace smallm {
 
     private:
         Model& model_;
-        const BPETokenizer& tokenizer_;
+        const Tokenizer& tokenizer_;
         Sampler& sampler_;
         std::vector<uint32_t> cached_tokens_;
 

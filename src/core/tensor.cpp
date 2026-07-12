@@ -96,6 +96,50 @@ void dequant_q4_0(const uint8_t* src, uint64_t count, std::vector<float>& out) {
         src += 2 + block / 2;  // advance past this block (18 bytes)
     }
 }
+void dequant_q6_k(const uint8_t* src, uint64_t count, std::vector<float>& out) {
+    const int QK_K = 256;          // values per super-block
+    const int block_bytes = 210;   // 128 (ql) + 64 (qh) + 16 (scales) + 2 (d)
+    out.resize(count);
+
+    uint64_t nblocks = count / QK_K;
+    for (uint64_t b = 0; b < nblocks; ++b) {
+        const uint8_t* ql     = src;
+        const uint8_t* qh     = src + 128;
+        const int8_t*  scales = reinterpret_cast<const int8_t*>(src + 192);
+
+        uint16_t d_bits;
+        std::memcpy(&d_bits, src + 208, 2);
+        float d = f16_to_f32(d_bits);
+
+        float* dst = out.data() + b * QK_K;
+
+        // the 256 values are packed as two halves of 128, each in groups of 32.
+        // for each l in 0..31, four values are extracted from ql[l], ql[l+32] and qh[l].
+        for (int half = 0; half < 2; ++half) {
+            const uint8_t* ql_h = ql + half * 64;
+            const uint8_t* qh_h = qh + half * 32;
+            const int8_t*  sc_h = scales + half * 8;
+            float* dst_h = dst + half * 128;
+
+            for (int l = 0; l < 32; ++l) {
+                uint8_t h = qh_h[l];
+
+                // 6-bit values: low nibble from ql, high 2 bits from qh, centered at 32
+                int q0 = static_cast<int>((ql_h[l]      & 0x0F) | (((h >> 0) & 3) << 4)) - 32;
+                int q1 = static_cast<int>((ql_h[l + 32] & 0x0F) | (((h >> 2) & 3) << 4)) - 32;
+                int q2 = static_cast<int>((ql_h[l]      >>   4) | (((h >> 4) & 3) << 4)) - 32;
+                int q3 = static_cast<int>((ql_h[l + 32] >>   4) | (((h >> 6) & 3) << 4)) - 32;
+
+                // each group of 16 values shares a sub-block scale
+                dst_h[l]      = d * sc_h[l / 16]       * static_cast<float>(q0);
+                dst_h[l + 32] = d * sc_h[2 + l / 16]   * static_cast<float>(q1);
+                dst_h[l + 64] = d * sc_h[4 + l / 16]   * static_cast<float>(q2);
+                dst_h[l + 96] = d * sc_h[6 + l / 16]   * static_cast<float>(q3);
+            }
+        }
+        src += block_bytes;
+    }
+}
 
 } // namespace
 
@@ -117,6 +161,7 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
         case TensorType::F32:  dequant_f32(src, count, out.data);  break;
         case TensorType::Q8_0: dequant_q8_0(src, count, out.data); break;
         case TensorType::Q4_0: dequant_q4_0(src, count, out.data); break;
+        case TensorType::Q6_K: dequant_q6_k(src, count, out.data); break;
         default:
             throw std::runtime_error("unsupported tensor type: " + std::to_string(info->type));
     }
@@ -136,5 +181,6 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
     qt.dims = info->dims;
     return qt;
 }
+
 
 } // namespace smallm

@@ -43,7 +43,7 @@ cmake --build build
 - Sampling strategies: temperature, top-k, top-p (+ greedy)
 - Prefix caching: architecture-agnostic KV reuse across shared prefixes
 - Performance: quantized matmul (AVX2 + OpenMP), ~9x faster decode
-
+- Llama architecture + SentencePiece tokenizer + Q6_K quantization
 ## Documentation
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities,
