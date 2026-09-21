@@ -156,11 +156,16 @@ Nothing else is touched. Existing architectures keep working.
 1. `backend/cuda_backend.h` + `src/backend/cuda_backend.cu` — define
    `CUDABackend : Backend`, implementing each operation with device kernels and
    whatever memory management the device needs.
-2. Select it when building the model (a backend choice passed to the model, rather
-   than a hard-coded `CPUBackend`).
+2. Register the backend in `backend_factory.cpp` and expose it via CLI
+   `--backend cuda` (or `cpu`).
 
-The forward pass does not change: it already calls through the `Backend`
-interface, so it runs on whatever backend it is given.
+Models are constructed with `build_model(gguf, create_backend(kind))`. The
+forward pass does not change: it already calls through the `Backend` interface.
+
+**Device memory (direction):** large quantized weights are mmap'd on the host.
+`CUDABackend` uploads each distinct weight pointer once and reuses it for
+matmul. Activations and the KV cache still live in host `std::vector` buffers
+today; moving KV to the device is a planned optimization to cut PCIe traffic.
 
 ### Add a new operator (e.g. GELU)
 
