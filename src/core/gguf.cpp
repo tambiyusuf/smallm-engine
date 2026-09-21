@@ -2,6 +2,7 @@
 // Created by tambiyusuf on 4.07.2026.
 //
 #include "../../include/smallm/core/gguf.h"
+#include "smallm/i18n/messages.h"
 
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -116,7 +117,9 @@ GGUFValue read_value(Reader& r, GGUFType type) {
 GGUFModel load_gguf(const std::string& path) {
     // open the file read-only and grab its size
     int fd = open(path.c_str(), O_RDONLY);
-    if (fd < 0) throw std::runtime_error("gguf: cannot open file: " + path);
+    if (fd < 0) {
+        i18n::throw_error(i18n::MessageId::ErrCannotOpenFile, path);
+    }
 
     struct stat st{};
     if (fstat(fd, &st) != 0) {
@@ -137,7 +140,7 @@ GGUFModel load_gguf(const std::string& path) {
     r.read_raw(magic, 4);
     if (std::memcmp(magic, "GGUF", 4) != 0) {
         munmap(mapping, file_size);
-        throw std::runtime_error("gguf: bad magic, not a GGUF file");
+        i18n::throw_error(i18n::MessageId::ErrBadGgufMagic);
     }
 
     GGUFModel model;

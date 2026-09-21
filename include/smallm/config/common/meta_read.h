@@ -4,8 +4,8 @@
 #pragma once
 
 #include "smallm/core/gguf.h"
+#include "smallm/i18n/messages.h"
 
-#include <stdexcept>
 #include <string>
 
 namespace smallm::meta {
@@ -15,11 +15,11 @@ namespace smallm::meta {
     T get(const GGUFModel& model, const std::string& key) {
         auto it = model.metadata.find(key);
         if (it == model.metadata.end()) {
-            throw std::runtime_error("config: missing metadata key: " + key);
+            i18n::throw_error(i18n::MessageId::ErrConfigMissingKey, key);
         }
         const T* val = std::get_if<T>(&it->second.data);
         if (!val) {
-            throw std::runtime_error("config: wrong type for metadata key: " + key);
+            i18n::throw_error(i18n::MessageId::ErrConfigWrongType, key);
         }
         return *val;
     }

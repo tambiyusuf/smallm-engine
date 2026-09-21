@@ -3,8 +3,7 @@
 //
 #include "smallm/config/common/config.h"
 #include "smallm/config/qwen2_config.h"
-
-#include <stdexcept>
+#include "smallm/i18n/messages.h"
 
 #include "smallm/config/llama_config.h"
 #include "smallm/config/common/meta_read.h"
@@ -17,7 +16,7 @@ namespace smallm {
         if (arch == "qwen2") return read_qwen2_config(model);
         if (arch == "llama") return read_llama_config(model);   // yeni
 
-        throw std::runtime_error("config: unsupported architecture: " + arch);
+        i18n::throw_error(i18n::MessageId::ErrUnsupportedArchitecture, arch);
     }
 
     void read_core_config(const GGUFModel& model, const std::string& prefix,

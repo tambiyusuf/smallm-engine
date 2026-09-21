@@ -4,7 +4,7 @@
 #include "smallm/tokenizer/bpe_tokenizer.h"
 
 #include <algorithm>
-#include <stdexcept>
+#include "smallm/i18n/messages.h"
 
 namespace smallm {
 
@@ -58,11 +58,11 @@ BPETokenizer::BPETokenizer(const GGUFModel& model) {
     // load vocab tokens
     auto tok = model.metadata.find("tokenizer.ggml.tokens");
     if (tok == model.metadata.end()) {
-        throw std::runtime_error("tokenizer: missing tokenizer.ggml.tokens");
+        i18n::throw_error(i18n::MessageId::ErrTokenizerMissingTokens);
     }
     const auto* tokens = std::get_if<std::vector<std::string>>(&tok->second.data);
     if (!tokens) {
-        throw std::runtime_error("tokenizer: tokens metadata is not a string array");
+        i18n::throw_error(i18n::MessageId::ErrTokenizerBadMetadata);
     }
 
     id_to_token_ = *tokens;

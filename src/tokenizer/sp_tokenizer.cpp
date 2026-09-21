@@ -3,7 +3,7 @@
 //
 #include "smallm/tokenizer/sp_tokenizer.h"
 
-#include <stdexcept>
+#include "smallm/i18n/messages.h"
 #include <limits>
 
 namespace smallm {
@@ -16,10 +16,12 @@ const std::string kSpaceMark = "\xE2\x96\x81";   // UTF-8 for U+2581
 SPTokenizer::SPTokenizer(const GGUFModel& model) {
     auto tok = model.metadata.find("tokenizer.ggml.tokens");
     if (tok == model.metadata.end()) {
-        throw std::runtime_error("tokenizer: missing tokenizer.ggml.tokens");
+        i18n::throw_error(i18n::MessageId::ErrTokenizerMissingTokens);
     }
     const auto* tokens = std::get_if<std::vector<std::string>>(&tok->second.data);
-    if (!tokens) throw std::runtime_error("tokenizer: tokens is not a string array");
+    if (!tokens) {
+        i18n::throw_error(i18n::MessageId::ErrTokenizerBadMetadata);
+    }
 
     id_to_token_ = *tokens;
     for (uint32_t i = 0; i < id_to_token_.size(); ++i) {

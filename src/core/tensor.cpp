@@ -3,6 +3,7 @@
 //
 #include "../../include/smallm/core/tensor.h"
 #include "smallm/core/common/quant_common.h"
+#include "smallm/i18n/messages.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -118,7 +119,9 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
     for (const auto& t : model.tensors) {
         if (t.name == name) { info = &t; break; }
     }
-    if (!info) throw std::runtime_error("tensor not found: " + name);
+    if (!info) {
+        i18n::throw_error(i18n::MessageId::ErrTensorNotFound, name);
+    }
 
     Tensor out;
     out.dims = info->dims;
@@ -132,7 +135,8 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
         case TensorType::Q4_0: dequant_q4_0(src, count, out.data); break;
         case TensorType::Q6_K: dequant_q6_k(src, count, out.data); break;
         default:
-            throw std::runtime_error("unsupported tensor type: " + std::to_string(info->type));
+            i18n::throw_error(i18n::MessageId::ErrUnsupportedTensorType,
+                              std::to_string(info->type));
     }
     return out;
 }
@@ -142,7 +146,9 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
     for (const auto& t : model.tensors) {
         if (t.name == name) { info = &t; break; }
     }
-    if (!info) throw std::runtime_error("tensor not found: " + name);
+    if (!info) {
+        i18n::throw_error(i18n::MessageId::ErrTensorNotFound, name);
+    }
 
     QuantizedTensor qt;
     qt.data = model.mapping + model.tensor_data_offset + info->offset;

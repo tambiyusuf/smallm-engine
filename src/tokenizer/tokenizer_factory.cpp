@@ -6,7 +6,7 @@
 #include "smallm/tokenizer/sp_tokenizer.h"
 #include "smallm/config/common/meta_read.h"
 
-#include <stdexcept>
+#include "smallm/i18n/messages.h"
 
 namespace smallm {
 
@@ -16,7 +16,7 @@ namespace smallm {
         if (kind == "gpt2")  return std::make_unique<BPETokenizer>(model);
         if (kind == "llama") return std::make_unique<SPTokenizer>(model);
 
-        throw std::runtime_error("tokenizer: unsupported type: " + kind);
+        i18n::throw_error(i18n::MessageId::ErrUnsupportedTokenizer, kind);
     }
 
 } // namespace smallm
