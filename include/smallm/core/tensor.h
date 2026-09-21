@@ -16,7 +16,9 @@ namespace smallm {
         F16   = 1,
         Q4_0  = 2,
         Q8_0  = 8,
-        Q6_K  = 14
+        Q6_K   = 14,
+        Q4_K   = 12,
+        Q4_K_M = 15,
     };
 
     // a tensor's weights fully expanded to float, plus its shape

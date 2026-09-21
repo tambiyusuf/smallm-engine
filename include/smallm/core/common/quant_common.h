@@ -12,6 +12,9 @@ namespace smallm {
     // converts an IEEE half-precision (f16) value to float.
     // quantized formats store their block scales as f16, so both the tensor
     // dequantizer and the quantized matmul need this.
+    // dequantize one row of Q4_K / Q4_K_M weights (k must be a multiple of 256)
+    void dequantize_row_q4_k(const uint8_t* blocks, uint32_t k, float* out);
+
     inline float f16_to_f32(uint16_t h) {
         uint32_t sign = (h & 0x8000u) << 16;
         uint32_t exp  = (h >> 10) & 0x1F;

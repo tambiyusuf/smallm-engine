@@ -9,6 +9,8 @@
 #include <cstring>
 #include <immintrin.h>   // AVX2 intrinsics
 #include <cstring>
+#include <vector>
+
 namespace smallm::ops {
 
     // naive matrix-vector product; correctness first, speed later
@@ -285,8 +287,20 @@ void matmul_quantized(const uint8_t* W, uint32_t type,
             lo128 = _mm_hadd_ps(lo128, lo128);
             y[r] = _mm_cvtss_f32(lo128);
         }
-    }
-        else {  // F32 fallback: plain float weights
+    } else if (type == 12 || type == 15) {  // Q4_K / Q4_K_M
+        const int QK_K = 256;
+        const int block_bytes = 144;
+        const uint32_t blocks_per_row = cols / QK_K;
+        const uint32_t row_bytes = blocks_per_row * block_bytes;
+
+        #pragma omp parallel for
+        for (uint32_t r = 0; r < rows; ++r) {
+            const uint8_t* row = W + static_cast<uint64_t>(r) * row_bytes;
+            std::vector<float> wf(cols);
+            dequantize_row_q4_k(row, cols, wf.data());
+            y[r] = dot(wf.data(), x, cols);
+        }
+    } else {  // F32 fallback: plain float weights
         const float* Wf = reinterpret_cast<const float*>(W);
 
         #pragma omp parallel for

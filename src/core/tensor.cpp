@@ -134,6 +134,12 @@ Tensor dequantize_tensor(const GGUFModel& model, const std::string& name) {
         case TensorType::Q8_0: dequant_q8_0(src, count, out.data); break;
         case TensorType::Q4_0: dequant_q4_0(src, count, out.data); break;
         case TensorType::Q6_K: dequant_q6_k(src, count, out.data); break;
+        case TensorType::Q4_K:
+        case TensorType::Q4_K_M: {
+            out.data.resize(count);
+            dequantize_row_q4_k(src, static_cast<uint32_t>(count), out.data.data());
+            break;
+        }
         default:
             i18n::throw_error(i18n::MessageId::ErrUnsupportedTensorType,
                               std::to_string(info->type));
