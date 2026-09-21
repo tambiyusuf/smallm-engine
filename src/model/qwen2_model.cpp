@@ -3,7 +3,6 @@
 //
 #include "smallm/model/qwen2_model.h"
 #include "smallm/config/qwen2_config.h"
-#include "smallm/backend/cpu_backend.h"
 
 #include <cmath>
 #include <algorithm>
@@ -25,10 +24,10 @@ namespace smallm {
 
 // ---- construction ----
 
-Qwen2Model::Qwen2Model(GGUFModel gguf)
+Qwen2Model::Qwen2Model(GGUFModel gguf, std::unique_ptr<Backend> backend)
     : Model(read_qwen2_config(gguf)),
       gguf_(std::move(gguf)),
-      backend_(std::make_unique<CPUBackend>()) {
+      backend_(std::move(backend)) {
     load_weights();
     allocate_kv();
 }

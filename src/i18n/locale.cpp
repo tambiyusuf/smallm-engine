@@ -150,6 +150,7 @@ void print_help() {
     std::cout << "      --top-p <P>        Nucleus top-p (0-1)\n";
     std::cout << "      --seed <S>         RNG seed\n";
     std::cout << "      --greedy           Force greedy decoding\n";
+    std::cout << "      --backend cpu|cuda Compute backend (default: cpu)\n";
 }
 
 } // namespace smallm::i18n

@@ -28,7 +28,7 @@ namespace smallm {
 
     class LlamaModel : public Model {
     public:
-        explicit LlamaModel(GGUFModel gguf);
+        LlamaModel(GGUFModel gguf, std::unique_ptr<Backend> backend);
 
         std::vector<float> forward(uint32_t token_id, uint32_t pos) override;
         void reset_cache() override;

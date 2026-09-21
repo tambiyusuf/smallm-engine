@@ -21,6 +21,8 @@ namespace smallm::i18n {
         ErrMissingModelPath,
         ErrMissingSubcommand,
         ErrInvalidLanguage,
+        ErrUnknownBackend,
+        ErrCudaNotBuilt,
         ErrGeneric,
 
         HelpTitle,

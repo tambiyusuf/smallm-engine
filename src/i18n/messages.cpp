@@ -46,6 +46,11 @@ namespace {
                     "alt komut eksik (generate, inspect, bench, help)"};
         case MessageId::ErrInvalidLanguage:
             return {"invalid language, use en or tr", "geçersiz dil, en veya tr kullanın"};
+        case MessageId::ErrUnknownBackend:
+            return {"unknown backend (use cpu or cuda)", "bilinmeyen backend (cpu veya cuda)"};
+        case MessageId::ErrCudaNotBuilt:
+            return {"CUDA backend not built; recompile with -DSMALLM_CUDA=ON",
+                    "CUDA backend derlenmedi; -DSMALLM_CUDA=ON ile yeniden derleyin"};
         case MessageId::ErrGeneric:
             return {"error", "hata"};
         case MessageId::HelpTitle:

@@ -5,6 +5,7 @@
 #include "smallm/core/gguf.h"
 #include "smallm/i18n/locale.h"
 #include "smallm/i18n/messages.h"
+#include "smallm/backend/backend_factory.h"
 #include "smallm/model/model_factory.h"
 #include "smallm/runtime/generator.h"
 #include "smallm/runtime/sampler/greedy_sampler.h"
@@ -31,6 +32,7 @@ namespace {
         uint64_t seed = 0;
         bool greedy = false;
         bool seed_set = false;
+        BackendKind backend = BackendKind::Cpu;
     };
 
     bool parse_generate_flags(int& i, int argc, char** argv, GenerateOptions& opt) {
@@ -83,6 +85,13 @@ namespace {
                 opt.greedy = true;
                 continue;
             }
+            if (arg == "--backend") {
+                if (i + 1 >= argc) {
+                    return false;
+                }
+                opt.backend = parse_backend_kind(argv[++i]);
+                continue;
+            }
             return false;
         }
         return true;
@@ -108,7 +117,8 @@ namespace {
     int run_generate(const std::string& model_path, GenerateOptions opt, bool bench_mode) {
         GGUFModel file = load_gguf(model_path);
         auto tokenizer = build_tokenizer(file);
-        auto engine = build_model(std::move(file));
+        auto backend = create_backend(opt.backend);
+        auto engine = build_model(std::move(file), std::move(backend));
 
         auto sampler = make_sampler(opt);
         Generator gen(*engine, *tokenizer, *sampler);

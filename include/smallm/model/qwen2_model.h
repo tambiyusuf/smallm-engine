@@ -28,7 +28,7 @@ namespace smallm {
 
     class Qwen2Model : public Model {
     public:
-        explicit Qwen2Model(GGUFModel gguf);
+        Qwen2Model(GGUFModel gguf, std::unique_ptr<Backend> backend);
 
         std::vector<float> forward(uint32_t token_id, uint32_t pos) override;
         void reset_cache() override;

@@ -3,7 +3,6 @@
 //
 #include "smallm/model/llama_model.h"
 #include "smallm/config/llama_config.h"
-#include "smallm/backend/cpu_backend.h"
 #include "smallm/core/ops.h"
 
 #include <cmath>
@@ -15,10 +14,10 @@ namespace smallm {
 
 // ---- construction ----
 
-LlamaModel::LlamaModel(GGUFModel gguf)
+LlamaModel::LlamaModel(GGUFModel gguf, std::unique_ptr<Backend> backend)
     : Model(read_llama_config(gguf)),
       gguf_(std::move(gguf)),
-      backend_(std::make_unique<CPUBackend>()) {
+      backend_(std::move(backend)) {
     load_weights();
     allocate_kv();
 }
