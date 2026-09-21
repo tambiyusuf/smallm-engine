@@ -31,6 +31,13 @@ cmake -B build -DCMAKE_CXX_COMPILER=clang++
 cmake --build build
 ```
 
+CUDA backend (optional, requires NVIDIA toolkit):
+
+```bash
+cmake -B build -DSMALLM_CUDA=ON
+cmake --build build
+```
+
 ## CLI
 
 ```bash
@@ -38,7 +45,22 @@ cmake --build build
 ./build/smallm inspect models/your-model.gguf
 ./build/smallm generate models/your-model.gguf --prompt "Hello" --max-new 32
 ./build/smallm bench models/your-model.gguf --prompt "Hello" --max-new 50
+./build/smallm generate models/your-model.gguf --prompt "Hello" --backend cuda
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## Benchmarks
+
+Compare CPU and CUDA decode on the same machine (requires `-DSMALLM_CUDA=ON`):
+
+```bash
+smallm bench models/your-model.gguf --max-new 50 --backend cpu
+smallm bench models/your-model.gguf --max-new 50 --backend cuda
+```
+
+CUDA currently accelerates Q4_0 quantized matmul with weights resident on the
+GPU; other ops still run on the CPU until more kernels land.
 
 Language for errors and labels: `SMALLM_LANG=tr`, `--lang tr`, or interactive
 setup on first run (saved under `~/.config/smallm/language`).
