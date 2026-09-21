@@ -20,7 +20,9 @@ GPU (CUDA) support comes later, once the CPU path is correct.
 
 ## Status
 
-Early stage. Current milestone: reading and inspecting GGUF files.
+CPU inference for Qwen2 and Llama GGUF models, with a small English CLI and
+localized error messages (Turkish or English via first-run setup, `SMALLM_LANG`,
+or `--lang`).
 
 ## Build
 
@@ -28,6 +30,18 @@ Early stage. Current milestone: reading and inspecting GGUF files.
 cmake -B build -DCMAKE_CXX_COMPILER=clang++
 cmake --build build
 ```
+
+## CLI
+
+```bash
+./build/smallm help
+./build/smallm inspect models/your-model.gguf
+./build/smallm generate models/your-model.gguf --prompt "Hello" --max-new 32
+./build/smallm bench models/your-model.gguf --prompt "Hello" --max-new 50
+```
+
+Language for errors and labels: `SMALLM_LANG=tr`, `--lang tr`, or interactive
+setup on first run (saved under `~/.config/smallm/language`).
 
 ## Progress
 
@@ -44,6 +58,8 @@ cmake --build build
 - Prefix caching: architecture-agnostic KV reuse across shared prefixes
 - Performance: quantized matmul (AVX2 + OpenMP), ~9x faster decode
 - Llama architecture + SentencePiece tokenizer + Q6_K quantization
+- CLI: generate, inspect, bench; model factory (Qwen2 / Llama auto-detect)
+- i18n: English CLI, Turkish or English errors (first-run / SMALLM_LANG / --lang)
 ## Documentation
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for module responsibilities,

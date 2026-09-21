@@ -26,6 +26,14 @@ add_executable(smallm
         # model
         src/model/qwen2_model.cpp
         src/model/llama_model.cpp
+        src/model/model_factory.cpp
+
+        # i18n
+        src/i18n/locale.cpp
+        src/i18n/messages.cpp
+
+        # cli
+        src/cli/cli.cpp
 
         # tokenizer
         src/tokenizer/bpe_tokenizer.cpp
